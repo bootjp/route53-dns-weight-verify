@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -8,8 +9,16 @@ import (
 )
 
 func main() {
+	net.DefaultResolver.PreferGo = false
 	targetHostName := os.Args[1]
 
+	r := net.Resolver{
+		PreferGo: true,
+		Dial:     Route53DNSDialer,
+	}
+	ctx := context.Background()
+
+	// fmt.Println("DNS Result", ipaddr)
 	result := map[string]int{}
 	defer func() {
 		total := 0
@@ -26,10 +35,9 @@ func main() {
 	}()
 
 	for index := 0; index < 1000; index++ {
-		addr, err := net.LookupHost(targetHostName)
+		addr, err := r.LookupHost(ctx, targetHostName)
 		if err != nil {
-			fmt.Println("Resolve error ", err)
-			os.Exit(1)
+			panic(err)
 		}
 		for _, v := range addr {
 			fmt.Println("Resovle addr is ", v)
@@ -38,9 +46,13 @@ func main() {
 			} else {
 				result[v] = 1
 			}
-
 		}
-		time.Sleep(500 * time.Millisecond)
+		fmt.Println("---")
+		time.Sleep(250 * time.Millisecond)
 
 	}
+}
+func Route53DNSDialer(ctx context.Context, network, address string) (net.Conn, error) {
+	d := net.Dialer{}
+	return d.DialContext(ctx, "udp", "205.251.196.7:53")
 }
